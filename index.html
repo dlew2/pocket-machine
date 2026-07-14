@@ -1,0 +1,612 @@
+<title>Pocket Machine</title>
+<style>
+  :root{
+    color-scheme: light;
+    --bg:#ece4d5;
+    --panel:#faf6ee;
+    --panel-2:#f1e9da;
+    --edge:#dcd1bd;
+    --edge-hi:#c8bca3;
+    --ink:#2b2318;
+    --ink-dim:#6a5d49;
+    --ink-faint:#9a8b72;
+    --amber:#df7815;
+    --amber-hi:#f49220;
+    --amber-glow:rgba(223,120,21,.32);
+    --hot:#d23f26;
+    --teal:#12897a;
+    --teal-soft:rgba(18,137,122,.12);
+    --led-off:#d9cdb6;
+    --lcd:#e4ebe3;
+    --lcd-2:#d7e0d5;
+    --cell-off:#d9cdb6;
+    --radius:14px;
+    --mono: ui-monospace,"SF Mono",Menlo,"DejaVu Sans Mono",monospace;
+    --sans: system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  }
+  /* Committed light "gear panel" world (per David's standing light-mode preference). */
+  :root[data-theme="dark"]{ color-scheme: light; }
+
+  *{box-sizing:border-box;}
+  body{margin:0;}
+  .stage{
+    min-height:100%;
+    background:
+      radial-gradient(1200px 600px at 50% -10%, #f6f0e3 0%, transparent 60%),
+      var(--bg);
+    color:var(--ink);
+    font-family:var(--sans);
+    padding:clamp(14px,3vw,40px);
+    display:flex;
+    justify-content:center;
+  }
+  .machine{
+    width:100%;
+    max-width:1120px;
+    background:linear-gradient(180deg,var(--panel),var(--panel-2));
+    border:1px solid var(--edge);
+    border-radius:calc(var(--radius) + 6px);
+    box-shadow:
+      0 1px 0 rgba(255,255,255,.7) inset,
+      0 30px 60px -34px rgba(90,70,40,.45);
+    overflow:hidden;
+  }
+
+  /* ---------- Nameplate ---------- */
+  .plate{
+    display:flex;align-items:center;justify-content:space-between;gap:18px;
+    padding:18px clamp(16px,3vw,28px);
+    border-bottom:1px solid var(--edge);
+    background:linear-gradient(180deg,rgba(255,255,255,.5),transparent);
+    flex-wrap:wrap;
+  }
+  .brand{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;}
+  .brand h1{
+    margin:0;font-family:var(--mono);font-size:clamp(20px,3vw,30px);font-weight:700;
+    letter-spacing:.14em;text-transform:uppercase;color:var(--ink);
+  }
+  .brand h1 span{color:var(--amber);}
+  .brand .sub{
+    font-family:var(--mono);font-size:11px;letter-spacing:.34em;
+    text-transform:uppercase;color:var(--ink-faint);
+  }
+  .power{
+    display:flex;align-items:center;gap:9px;font-family:var(--mono);font-size:11px;
+    letter-spacing:.22em;text-transform:uppercase;color:var(--ink-dim);
+  }
+  .power .dot{width:9px;height:9px;border-radius:50%;background:var(--led-off);transition:all .18s;
+    box-shadow:0 0 0 1px rgba(0,0,0,.08) inset;}
+  .power.on .dot{background:var(--hot);box-shadow:0 0 10px 1px rgba(210,63,38,.6);}
+
+  /* ---------- Transport ---------- */
+  .transport{
+    display:flex;align-items:center;gap:clamp(14px,2.5vw,30px);
+    padding:16px clamp(16px,3vw,28px);
+    border-bottom:1px solid var(--edge);
+    background:linear-gradient(180deg,var(--panel),var(--panel-2));
+    flex-wrap:wrap;
+  }
+  .play{
+    appearance:none;border:none;cursor:pointer;width:64px;height:64px;border-radius:50%;
+    background:radial-gradient(circle at 35% 28%,#ffffff,#e7ddc9);
+    border:1px solid var(--edge-hi);color:var(--amber);
+    display:grid;place-items:center;
+    box-shadow:0 6px 14px -8px rgba(90,70,40,.6), 0 1px 0 rgba(255,255,255,.9) inset;
+    transition:transform .08s, box-shadow .18s, color .18s;flex:none;
+  }
+  .play:hover{color:var(--amber-hi);}
+  .play:active{transform:translateY(1px) scale(.98);}
+  .play.playing{color:var(--hot);box-shadow:0 0 0 2px rgba(210,63,38,.5) inset, 0 0 18px -4px var(--hot);}
+  .play svg{width:26px;height:26px;}
+  .play:focus-visible{outline:2px solid var(--amber);outline-offset:3px;}
+
+  .readout{display:flex;flex-direction:column;gap:3px;min-width:132px;}
+  .readout .bpm-line{display:flex;align-items:baseline;gap:8px;}
+  .readout .bpm{
+    font-family:var(--mono);font-weight:700;font-size:38px;line-height:1;color:var(--amber);
+    font-variant-numeric:tabular-nums;letter-spacing:.02em;
+  }
+  .readout .unit{font-family:var(--mono);font-size:11px;letter-spacing:.2em;color:var(--ink-faint);text-transform:uppercase;}
+  .readout .feel{font-family:var(--mono);font-size:11px;letter-spacing:.12em;color:var(--ink-dim);text-transform:uppercase;min-height:14px;}
+
+  .ctl{display:flex;flex-direction:column;gap:8px;flex:1;min-width:190px;}
+  .ctl .lab{font-family:var(--mono);font-size:10px;letter-spacing:.24em;text-transform:uppercase;color:var(--ink-faint);}
+  input[type=range]{
+    -webkit-appearance:none;appearance:none;width:100%;height:5px;border-radius:4px;
+    background:linear-gradient(90deg,var(--amber) var(--fill,40%), var(--led-off) var(--fill,40%));
+    cursor:pointer;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;width:18px;height:18px;border-radius:50%;
+    background:radial-gradient(circle at 35% 30%,#ffffff,#d9a35a);
+    border:1px solid #b07d34;box-shadow:0 2px 5px -1px rgba(90,70,40,.5);
+  }
+  input[type=range]::-moz-range-thumb{
+    width:18px;height:18px;border:1px solid #b07d34;border-radius:50%;
+    background:radial-gradient(circle at 35% 30%,#ffffff,#d9a35a);
+  }
+  input[type=range]:focus-visible{outline:2px solid var(--amber);outline-offset:4px;}
+
+  .octaves{display:flex;gap:6px;}
+  .chip{
+    appearance:none;cursor:pointer;font-family:var(--mono);font-size:12px;letter-spacing:.08em;
+    padding:7px 12px;border-radius:8px;background:var(--panel);color:var(--ink-dim);
+    border:1px solid var(--edge);transition:all .14s;
+  }
+  .chip:hover{color:var(--ink);border-color:var(--edge-hi);}
+  .chip.active{background:#fbe7d3;color:#a85a08;border-color:#e0a94e;box-shadow:0 0 0 1px rgba(224,169,78,.4);}
+  .chip:focus-visible{outline:2px solid var(--amber);outline-offset:2px;}
+
+  /* ---------- Body ---------- */
+  .body{display:grid;grid-template-columns:minmax(230px,300px) 1fr;gap:0;}
+  @media(max-width:760px){ .body{grid-template-columns:1fr;} }
+
+  .rack{
+    padding:18px clamp(14px,2vw,20px);border-right:1px solid var(--edge);
+    display:flex;flex-direction:column;gap:16px;background:linear-gradient(180deg,var(--panel-2),var(--panel));
+  }
+  @media(max-width:760px){ .rack{border-right:none;border-bottom:1px solid var(--edge);} }
+  .fam{display:flex;flex-direction:column;gap:7px;}
+  .fam-lab{
+    font-family:var(--mono);font-size:10px;letter-spacing:.24em;text-transform:uppercase;
+    color:var(--ink-faint);display:flex;align-items:center;gap:8px;
+  }
+  .fam-lab::after{content:"";flex:1;height:1px;background:var(--edge);}
+  .pockets{display:flex;flex-direction:column;gap:5px;}
+  .pk{
+    appearance:none;cursor:pointer;text-align:left;display:flex;align-items:center;gap:11px;
+    padding:9px 11px;border-radius:9px;background:transparent;border:1px solid transparent;
+    color:var(--ink-dim);transition:all .13s;font-family:var(--sans);
+  }
+  .pk:hover{background:var(--panel);color:var(--ink);border-color:var(--edge);}
+  .pk .led{
+    width:10px;height:10px;border-radius:50%;flex:none;background:var(--led-off);
+    box-shadow:0 0 0 1px rgba(0,0,0,.08) inset;transition:all .16s;
+  }
+  .pk .nm{font-size:14px;font-weight:500;letter-spacing:.01em;}
+  .pk.active{background:linear-gradient(180deg,#fdf0da,#f8e6c8);border-color:#e6b96b;color:var(--ink);}
+  .pk.active .led{background:var(--amber);box-shadow:0 0 8px 1px var(--amber-glow);}
+  .pk.playing-hit .led{background:var(--amber-hi);box-shadow:0 0 12px 2px var(--amber-glow);}
+  .pk:focus-visible{outline:2px solid var(--amber);outline-offset:1px;}
+
+  /* ---------- Display ---------- */
+  .display{padding:clamp(16px,2.4vw,26px);display:flex;flex-direction:column;gap:22px;}
+
+  .screen{
+    background:linear-gradient(180deg,var(--lcd),var(--lcd-2));
+    border:1px solid #b9c6b6;border-radius:var(--radius);
+    padding:18px clamp(14px,2vw,22px) 14px;
+    box-shadow:0 1px 0 rgba(255,255,255,.6) inset, 0 8px 22px -18px rgba(40,60,40,.5);
+  }
+  .pulse-row{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:14px;flex-wrap:wrap;}
+  .pulse-label{font-family:var(--mono);font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);}
+  .beats{display:flex;gap:8px;}
+  .beats b{
+    font-family:var(--mono);font-size:12px;width:22px;height:22px;border-radius:5px;
+    display:grid;place-items:center;color:var(--ink-faint);background:rgba(18,137,122,.08);
+    transition:all .1s;font-weight:400;
+  }
+  .beats b.lit{color:#eafcf8;background:var(--teal);box-shadow:0 0 10px -1px rgba(18,137,122,.6);}
+
+  .pendulum{position:relative;height:44px;margin:2px 4px 4px;}
+  .pendulum .track{position:absolute;top:50%;left:0;right:0;height:2px;transform:translateY(-50%);
+    background:linear-gradient(90deg,transparent,rgba(18,137,122,.3),transparent);border-radius:2px;}
+  .orb{
+    position:absolute;top:50%;left:0;width:26px;height:26px;border-radius:50%;transform:translate(-50%,-50%);
+    background:radial-gradient(circle at 35% 30%,#7fded0,var(--teal));
+    box-shadow:0 0 16px -3px rgba(18,137,122,.7);will-change:left;
+  }
+
+  .seq{margin-top:16px;}
+  .seq-row{display:flex;align-items:center;gap:12px;margin-bottom:7px;}
+  .seq-row:last-child{margin-bottom:0;}
+  .seq-name{
+    font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--ink-faint);width:46px;flex:none;text-align:right;
+  }
+  .cells{display:flex;gap:3px;flex:1;min-width:0;overflow:hidden;}
+  .cell{
+    flex:1;height:20px;border-radius:3px;min-width:4px;background:var(--cell-off);
+    border:1px solid #c7bda6;position:relative;transition:background .04s;
+  }
+  .cell.beat{border-left:2px solid #a99a7c;}
+  .cell.on{background:linear-gradient(180deg,#f2b969,#e08a2a);border-color:#c9822f;}
+  .cell.on[data-v="hi"]{background:linear-gradient(180deg,var(--amber-hi),var(--amber));border-color:#b9670f;box-shadow:0 0 8px -2px var(--amber-glow);}
+  .cell.head{outline:2px solid var(--teal);outline-offset:-1px;}
+  .cell.head.on{box-shadow:0 0 10px -1px var(--amber-glow);}
+
+  /* ---------- Detail ---------- */
+  .detail{display:flex;flex-direction:column;gap:6px;}
+  .detail .tag{
+    font-family:var(--mono);font-size:10px;letter-spacing:.2em;text-transform:uppercase;
+    color:var(--amber);display:flex;align-items:center;gap:9px;flex-wrap:wrap;
+  }
+  .detail .tag .ref{color:var(--ink-faint);}
+  .detail h2{margin:2px 0 0;font-size:clamp(22px,3.4vw,30px);font-weight:700;letter-spacing:-.01em;text-wrap:balance;color:var(--ink);}
+  .detail p{margin:4px 0 0;color:var(--ink-dim);font-size:15px;line-height:1.55;max-width:60ch;}
+
+  .foot{
+    padding:14px clamp(16px,3vw,28px);border-top:1px solid var(--edge);
+    font-family:var(--mono);font-size:11px;letter-spacing:.03em;color:var(--ink-faint);
+    line-height:1.7;display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;
+    background:linear-gradient(180deg,transparent,rgba(0,0,0,.015));
+  }
+  .foot b{color:var(--ink-dim);font-weight:600;}
+
+  @media (prefers-reduced-motion: reduce){
+    .orb{transition:none;}
+    *{scroll-behavior:auto;}
+  }
+</style>
+
+<div class="stage">
+  <div class="machine">
+    <div class="plate">
+      <div class="brand">
+        <h1>POCKET&nbsp;<span>MACHINE</span></h1>
+        <span class="sub">Time-Feel Trainer</span>
+      </div>
+      <div class="power" id="power"><span class="dot"></span><span>Standby</span></div>
+    </div>
+
+    <div class="transport">
+      <button class="play" id="play" aria-label="Play / Stop">
+        <svg id="play-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+      </button>
+      <div class="readout">
+        <div class="bpm-line"><span class="bpm" id="bpm">60</span><span class="unit">BPM</span></div>
+        <span class="feel" id="feel">Ballad · umpty dumpty</span>
+      </div>
+      <div class="ctl">
+        <span class="lab">Tempo</span>
+        <input type="range" id="tempo" min="40" max="240" step="1" value="60" aria-label="Tempo in BPM">
+      </div>
+      <div class="ctl" style="flex:0 0 auto;">
+        <span class="lab">Octaves</span>
+        <div class="octaves" id="octaves">
+          <button class="chip" data-t="60">60</button>
+          <button class="chip" data-t="120">120</button>
+          <button class="chip" data-t="240">240</button>
+        </div>
+      </div>
+      <div class="ctl" style="max-width:170px;">
+        <span class="lab">Swing <span id="swing-val" style="color:var(--ink-dim)">0%</span></span>
+        <input type="range" id="swing" min="0" max="60" step="1" value="0" aria-label="Swing amount">
+      </div>
+    </div>
+
+    <div class="body">
+      <div class="rack" id="rack"></div>
+
+      <div class="display">
+        <div class="screen">
+          <div class="pulse-row">
+            <span class="pulse-label">The Pulse — stays slow while pockets ride on top</span>
+            <div class="beats"><b data-b="0">1</b><b data-b="1">2</b><b data-b="2">3</b><b data-b="3">4</b></div>
+          </div>
+          <div class="pendulum">
+            <div class="track"></div>
+            <div class="orb" id="orb"></div>
+          </div>
+          <div class="seq" id="seq"></div>
+        </div>
+
+        <div class="detail">
+          <div class="tag"><span id="d-fam">Pulse</span><span class="ref" id="d-ref">The trap to avoid</span></div>
+          <h2 id="d-name">Umpty Dumpty</h2>
+          <p id="d-desc">The raw half-note sway with no subdivision. Feel time only from beat to beat and you'll sound stupid — this is where bad time lives. Every pocket below is a way of telling a story inside this pulse.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="foot">
+      <span><b>Method:</b> one slow pulse, many subdivisions. Practice tempos in octaves — 60 · 120 · 240 drink from the same well.</span>
+      <span><b>Ref tracks:</b> Wes Montgomery · SRV · Ray Charles · Pat Martino</span>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  "use strict";
+
+  // ---------- Pattern builder ----------
+  // kick/snare accept [[stepIndex, velocity], ...]; hat accepts that OR a function(i)=>velocity.
+  function P(cfg){
+    const steps = cfg.div * 4;
+    const build = (spec) => {
+      const a = new Array(steps).fill(0);
+      if (typeof spec === "function"){ for (let i=0;i<steps;i++) a[i] = spec(i) || 0; }
+      else if (Array.isArray(spec)){ spec.forEach(([i,v]) => { a[i] = v; }); }
+      return a;
+    };
+    return {
+      div: cfg.div, rate: cfg.rate || 1, swingable: !!cfg.swingable,
+      hatDecay: cfg.hatDecay || 0.045,
+      kick: build(cfg.kick || []), snare: build(cfg.snare || []), hat: build(cfg.hat || []),
+    };
+  }
+
+  // ---------- The pockets, grouped by family ----------
+  const POCKETS = [
+    { id:"pulse", fam:"The Pulse", name:"Umpty Dumpty", ref:"The trap to avoid",
+      desc:"The raw half-note sway with no subdivision — feeling time only from beat to beat. Do this and you sound stupid; every pocket below is a way of telling a story inside this same pulse.",
+      pat:P({div:1, kick:[[0,.9],[2,.9]], snare:[[1,.95],[3,.95]]}) },
+
+    { id:"acdc", fam:"Straight Eights", name:"ACDC / Levee Breaks", ref:"Wes Montgomery",
+      desc:"A heavy straight-eighth pocket, à la 'When the Levee Breaks.' Wes leaned on it to make statements that push against the music.",
+      pat:P({div:2, swingable:true, kick:[[0,.9],[3,.6],[4,.9]], snare:[[2,.95],[6,.95]], hat:i=> i%2? .4:.55}) },
+
+    { id:"dwop", fam:"Triplet Pocket", name:"Dwop", ref:"Ray Charles",
+      desc:"All the triplets, Ray-Charles elegant. When it's intentional it's gorgeous; when a swing band slides here by accident it's a nightmare.",
+      pat:P({div:3, kick:[[0,.85],[6,.85]], snare:[[3,.95],[9,.95]], hat:i=> i%3===0? .7:.4}) },
+    { id:"shuffle", fam:"Triplet Pocket", name:"Shuffle", ref:"SRV / blues",
+      desc:"First and third of every triplet — the Texas blues engine. 'It's flooding down in Texas.' You play bluesy over it, not just the drum part.",
+      pat:P({div:3, kick:[[0,.85],[6,.85]], snare:[[3,.95],[9,.95]], hat:i=> i%3===1?0:(i%3===0?.7:.5)}) },
+    { id:"swing", fam:"Triplet Pocket", name:"Swing", ref:"Jazz ride",
+      desc:"Leaning outside the frame like an all-knowing storyteller — sprinkling triplets in rather than locking to them. Spang, spang-a-lang.",
+      pat:P({div:3, hatDecay:.14, kick:[[0,.35],[6,.35]], snare:[[3,.4],[9,.4]],
+             hat:[[0,.8],[3,.65],[5,.55],[6,.8],[9,.65],[11,.55]]}) },
+
+    { id:"funk", fam:"Funk Pocket", name:"Funk (16ths)", ref:"Wes · Wine & Roses",
+      desc:"Sixteenths syncopated in the cracks of time — it's not a backbeat with 16ths, it's where you put the accents. Where Wes Montgomery lived.",
+      pat:P({div:4, swingable:true, kick:[[0,.9],[6,.8],[10,.75]], snare:[[4,.9],[7,.3],[12,.9],[15,.3]],
+             hat:i=> i%4===0? .55 : (i%2===0? .45 : .33)}) },
+
+    { id:"sixlet", fam:"Sixlet Pocket", name:"Sixlet (6 per side)", ref:"Prince / Yellowjackets",
+      desc:"Six subdivisions per side — where Prince shuffles come from, plus fusion and the African vibe. That slow backbeat, divided into six.",
+      pat:P({div:6, kick:[[0,.85],[12,.85]], snare:[[6,.95],[18,.95]], hat:i=> i%6===0? .6:.36}) },
+
+    { id:"fusion", fam:"Fusion Pocket", name:"Fusion (32nds)", ref:"Metheny / Scofield",
+      desc:"Thirty-seconds over a kept halftime feel — how players sound relaxed while flying fast over a slow groove. Also lurks in a lot of metal.",
+      pat:P({div:8, kick:[[0,.9],[20,.55]], snare:[[16,.95]],
+             hat:i=> i%8===0? .5 : (i%4===0? .32 : (i%2===0? .24 : .18))}) },
+
+    { id:"latin", fam:"Double Time · 2×", name:"Latin (straight)", ref:"Double time · 2×",
+      desc:"Put all four beats on one side and make pretend upbeats — now it's a jog, not a sleep. Straight eighths at double the pulse: the Latin field.",
+      pat:P({div:2, rate:2, kick:[[0,.7],[3,.8],[6,.85]], snare:[[2,.65],[6,.65]], hat:i=> i%2? .4:.5}) },
+    { id:"prideandjoy", fam:"Double Time · 2×", name:"Pride & Joy", ref:"SRV · 2×",
+      desc:"Double-time triplets — before it was the Prince shuffle, now it's 'Pride and Joy.' Fast, but you still play bluesy on top of it.",
+      pat:P({div:3, rate:2, kick:[[0,.85],[6,.85]],
+             snare:[[2,.28],[3,.9],[5,.28],[8,.28],[9,.9],[11,.28]],
+             hat:i=> i%3===1?0:(i%3===0?.7:.5)}) },
+    { id:"dtswing", fam:"Double Time · 2×", name:"Double-Time Swing", ref:"Martino / Benson · 2×",
+      desc:"The one that blows brains — the blazing Pat Martino / George Benson / Charlie Parker feel. Secretly it's just double-time funk.",
+      pat:P({div:4, rate:2, swingable:true, kick:[[0,.9],[6,.8],[10,.75]],
+             snare:[[4,.9],[7,.3],[12,.9],[15,.3]], hat:i=> i%4===0? .55 : (i%2===0? .45 : .33)}) },
+  ];
+
+  // ---------- State ----------
+  let ctx = null, noiseBuf = null, master = null;
+  let playing = false;
+  let current = POCKETS[0];
+  let pending = null;
+  let bpm = 60, swing = 0;
+  let curStep = 0, nextNoteTime = 0, pulseStart = 0;
+  let timerId = null, rafId = null;
+  const LOOKAHEAD = 25, AHEAD = 0.12;
+  const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  // ---------- Audio ----------
+  function initAudio(){
+    if (ctx) return;
+    ctx = new (window.AudioContext || window.webkitAudioContext)();
+    master = ctx.createDynamicsCompressor();
+    master.threshold.value = -14; master.ratio.value = 4; master.release.value = .25;
+    const g = ctx.createGain(); g.gain.value = .85;
+    master.connect(g).connect(ctx.destination);
+    const len = ctx.sampleRate * 0.5;
+    noiseBuf = ctx.createBuffer(1, len, ctx.sampleRate);
+    const d = noiseBuf.getChannelData(0);
+    for (let i=0;i<len;i++) d[i] = Math.random()*2 - 1;
+  }
+  function kick(t, v){
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = "sine";
+    o.frequency.setValueAtTime(150, t);
+    o.frequency.exponentialRampToValueAtTime(48, t + .11);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(Math.max(.1, v), t + .006);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + .32);
+    o.connect(g).connect(master);
+    o.start(t); o.stop(t + .34);
+  }
+  function snare(t, v){
+    const n = ctx.createBufferSource(); n.buffer = noiseBuf;
+    const hp = ctx.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = 1400;
+    const ng = ctx.createGain();
+    ng.gain.setValueAtTime(v*0.9, t);
+    ng.gain.exponentialRampToValueAtTime(0.0001, t + .16);
+    n.connect(hp).connect(ng).connect(master);
+    const o = ctx.createOscillator(), og = ctx.createGain();
+    o.type = "triangle"; o.frequency.setValueAtTime(190, t);
+    og.gain.setValueAtTime(v*0.5, t);
+    og.gain.exponentialRampToValueAtTime(0.0001, t + .12);
+    o.connect(og).connect(master);
+    n.start(t); n.stop(t + .18); o.start(t); o.stop(t + .14);
+  }
+  function hat(t, v, decay){
+    const n = ctx.createBufferSource(); n.buffer = noiseBuf;
+    const hp = ctx.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = 7200;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(v*0.6, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + decay);
+    n.connect(hp).connect(g).connect(master);
+    n.start(t); n.stop(t + decay + .02);
+  }
+
+  // ---------- Scheduler ----------
+  function scheduler(){
+    while (nextNoteTime < ctx.currentTime + AHEAD){
+      if (curStep === 0 && pending){ current = pending; pending = null; buildSeq(); }
+      const p = current.pat;
+      const secBeat = 60 / bpm;
+      const stepDur = secBeat / p.div / p.rate;
+      let hitTime = nextNoteTime;
+      if (p.swingable && swing > 0 && (curStep % 2 === 1)){
+        hitTime += stepDur * (swing / 100);
+      }
+      if (p.kick[curStep])  kick(hitTime, p.kick[curStep]);
+      if (p.snare[curStep]) snare(hitTime, p.snare[curStep]);
+      if (p.hat[curStep])   hat(hitTime, p.hat[curStep], p.hatDecay);
+      flashHead(curStep, hitTime, p);
+      nextNoteTime += stepDur;
+      curStep = (curStep + 1) % (p.div * 4);
+    }
+    timerId = setTimeout(scheduler, LOOKAHEAD);
+  }
+  function flashHead(step, time){
+    const delay = Math.max(0, (time - ctx.currentTime) * 1000);
+    setTimeout(() => {
+      if (!playing) return;
+      seqEl.querySelectorAll(".cell.head").forEach(c => c.classList.remove("head"));
+      seqEl.querySelectorAll('[data-step="'+step+'"]').forEach(c => c.classList.add("head"));
+      if (step === 0){
+        const btn = rackEl.querySelector('.pk[data-id="'+current.id+'"]');
+        if (btn){ btn.classList.add("playing-hit"); setTimeout(()=>btn.classList.remove("playing-hit"),120); }
+      }
+    }, delay);
+  }
+
+  // ---------- Pulse animation (independent slow clock) ----------
+  function animate(){
+    if (playing && ctx){
+      const secBeat = 60 / bpm;
+      const elapsed = ctx.currentTime - pulseStart;
+      const beats = elapsed / secBeat;
+      const beatIdx = ((Math.floor(beats) % 4) + 4) % 4;
+      const x = reduceMotion ? (beatIdx/3) : (Math.sin(beats * Math.PI) * 0.5 + 0.5);
+      orb.style.left = (6 + x * 88) + "%";
+      beatEls.forEach((b,i)=> b.classList.toggle("lit", i === beatIdx));
+    }
+    rafId = requestAnimationFrame(animate);
+  }
+
+  // ---------- UI build ----------
+  const rackEl = document.getElementById("rack");
+  const seqEl  = document.getElementById("seq");
+  const orb    = document.getElementById("orb");
+  const beatEls= [...document.querySelectorAll(".beats b")];
+
+  function buildRack(){
+    const fams = [];
+    POCKETS.forEach(p => { if (!fams.includes(p.fam)) fams.push(p.fam); });
+    rackEl.innerHTML = "";
+    fams.forEach(fam => {
+      const wrap = document.createElement("div"); wrap.className = "fam";
+      const lab = document.createElement("div"); lab.className = "fam-lab"; lab.textContent = fam;
+      wrap.appendChild(lab);
+      const list = document.createElement("div"); list.className = "pockets";
+      POCKETS.filter(p => p.fam === fam).forEach(p => {
+        const b = document.createElement("button");
+        b.className = "pk" + (p.id === current.id ? " active" : "");
+        b.dataset.id = p.id;
+        b.innerHTML = '<span class="led"></span><span class="nm">'+p.name+'</span>';
+        b.addEventListener("click", () => selectPocket(p));
+        list.appendChild(b);
+      });
+      wrap.appendChild(list); rackEl.appendChild(wrap);
+    });
+  }
+
+  function buildSeq(){
+    const p = current.pat, steps = p.div * 4;
+    const rows = [
+      { key:"hat",   label:"Hat" },
+      { key:"snare", label:"Snr" },
+      { key:"kick",  label:"Kick" },
+    ];
+    seqEl.innerHTML = "";
+    rows.forEach(r => {
+      const row = document.createElement("div"); row.className = "seq-row";
+      const nm = document.createElement("div"); nm.className = "seq-name"; nm.textContent = r.label;
+      const cells = document.createElement("div"); cells.className = "cells";
+      for (let i=0;i<steps;i++){
+        const c = document.createElement("div");
+        const v = p[r.key][i];
+        c.className = "cell" + (v>0? " on":"") + (i % p.div === 0? " beat":"");
+        if (v >= 0.7) c.dataset.v = "hi";
+        c.dataset.step = i;
+        cells.appendChild(c);
+      }
+      row.appendChild(nm); row.appendChild(cells); seqEl.appendChild(row);
+    });
+  }
+
+  function feelText(p){
+    return p.pat.rate === 2 ? "Double time · "+(bpm*2)+" feel"
+      : (p.id === "pulse" ? "Ballad · umpty dumpty" : p.name);
+  }
+
+  function selectPocket(p){
+    rackEl.querySelectorAll(".pk").forEach(b => b.classList.toggle("active", b.dataset.id === p.id));
+    document.getElementById("d-fam").textContent  = p.fam;
+    document.getElementById("d-ref").textContent  = p.ref;
+    document.getElementById("d-name").textContent = p.name;
+    document.getElementById("d-desc").textContent = p.desc;
+    document.getElementById("feel").textContent   = feelText(p);
+    if (playing){ pending = p; } else { current = p; buildSeq(); }
+  }
+
+  // ---------- Transport ----------
+  const playBtn = document.getElementById("play");
+  const playIcon= document.getElementById("play-icon");
+  const power   = document.getElementById("power");
+
+  function start(){
+    initAudio();
+    if (ctx.state === "suspended") ctx.resume();
+    playing = true;
+    curStep = 0;
+    nextNoteTime = ctx.currentTime + 0.08;
+    pulseStart   = nextNoteTime;
+    playBtn.classList.add("playing");
+    playIcon.innerHTML = '<rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/>';
+    power.classList.add("on"); power.querySelector("span:last-child").textContent = "Running";
+    scheduler();
+  }
+  function stop(){
+    playing = false;
+    clearTimeout(timerId);
+    playBtn.classList.remove("playing");
+    playIcon.innerHTML = '<path d="M8 5v14l11-7z"/>';
+    power.classList.remove("on"); power.querySelector("span:last-child").textContent = "Standby";
+    seqEl.querySelectorAll(".cell").forEach(c => c.classList.remove("head"));
+    beatEls.forEach(b => b.classList.remove("lit"));
+  }
+  playBtn.addEventListener("click", () => playing ? stop() : start());
+
+  // tempo / swing
+  const tempoEl = document.getElementById("tempo");
+  const bpmEl   = document.getElementById("bpm");
+  const swingEl = document.getElementById("swing");
+  const swingVal= document.getElementById("swing-val");
+  const octaves = document.getElementById("octaves");
+
+  function setTempo(v){
+    bpm = v; bpmEl.textContent = v; tempoEl.value = v;
+    tempoEl.style.setProperty("--fill", ((v-40)/(240-40)*100)+"%");
+    octaves.querySelectorAll(".chip").forEach(c => c.classList.toggle("active", +c.dataset.t === v));
+    document.getElementById("feel").textContent = feelText(current);
+  }
+  tempoEl.addEventListener("input", e => setTempo(+e.target.value));
+  octaves.querySelectorAll(".chip").forEach(c => c.addEventListener("click", () => setTempo(+c.dataset.t)));
+  swingEl.addEventListener("input", e => {
+    swing = +e.target.value; swingVal.textContent = swing + "%";
+    swingEl.style.setProperty("--fill", (swing/60*100)+"%");
+  });
+
+  document.addEventListener("keydown", e => {
+    if (e.code === "Space" && e.target.tagName !== "INPUT" && e.target.tagName !== "BUTTON"){
+      e.preventDefault(); playing ? stop() : start();
+    }
+  });
+
+  // ---------- Init ----------
+  buildRack();
+  buildSeq();
+  setTempo(60);
+  swingEl.style.setProperty("--fill","0%");
+  animate();
+})();
+</script>
